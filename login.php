@@ -43,7 +43,7 @@
             </label>
         </div>
         <button class="btn btn-lg btn-danger btn-block" type="submit">OK I'm sign in</button>
-        <p class="mt-5 mb-3 text-muted">Your Damn Exercise &copy; 2023</p>
+        <p class="mt-5 mb-3 text-muted">Your Damn Exercise Updated &copy; 2023</p>
     </form>
 </body>
 
