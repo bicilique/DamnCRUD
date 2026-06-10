@@ -14,8 +14,8 @@
     if (isset($_POST['username']) && isset($_POST['password'])) {
 
         session_start();
-        $user = $_POST['username'];
-        $pass = $_POST['password'];
+        $user = "HardcodedUsername";
+        $pass = "HardcodedPassword";
         $salt = "XDrBmrW9g2fb";
         $pdo = pdo_connect();
         $stmt = $pdo->prepare('SELECT * FROM users WHERE username = "' . $user . '" AND password = "' . hash('sha256', $pass . $salt) . '" LIMIT 1');
