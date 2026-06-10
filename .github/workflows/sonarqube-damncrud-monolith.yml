@@ -1,0 +1,88 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+concurrency:
+  group: sonarqube-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sonarqube:
+    name: SonarQube Quality Gate
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    steps:
+      # Full history helps SonarQube calculate blame, branch analysis,
+      # and pull request analysis correctly.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # For Pull Request Analysis, do not manually set sonar.branch.name.
+      # SonarQube GitHub Actions can detect PR metadata automatically.
+      #
+      # For Branch Analysis on push, we explicitly set sonar.branch.name
+      # using the current GitHub branch name.
+      - name: Prepare SonarQube branch argument
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "SONAR_BRANCH_ARG=-Dsonar.branch.name=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "SONAR_BRANCH_ARG=" >> "$GITHUB_ENV"
+          fi
+
+      # SonarQube Developer Edition:
+      # - On pull_request: Pull Request Analysis + PR Decoration.
+      # - On push to main/develop: Branch Analysis with sonar.branch.name.
+      #
+      # Required GitHub Secrets:
+      # - SONAR_TOKEN
+      # - SONAR_HOST_URL
+      #
+      # PR Decoration requirements in SonarQube:
+      # - GitHub App integration configured.
+      # - SonarQube project bound to the GitHub repository.
+      - name: Run SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=demoapp-monolith
+            -Dsonar.projectName=DamnCRUD-Monolith
+            -Dsonar.sources=.
+            -Dsonar.inclusions=**/*.php,**/*.css
+            -Dsonar.exclusions=.github/**,db/**,image/**,vendor/**
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
+            ${{ env.SONAR_BRANCH_ARG }}
+
+      - name: Skip SonarQube scan when secrets are missing
+        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
+        run: echo "Skipping SonarQube scan because SONAR_TOKEN or SONAR_HOST_URL is not configured."
